@@ -35,11 +35,11 @@ int main(int argc, char **argv) {
 			exit(0);
 		}
 		if (strcmp(argv[1], "topN") == 0) {
-			select_topN(std::string(argv[2]), atoi(argv[3]), std::string(argv[3]));
+			select_topN(std::string(argv[2]), atoi(argv[3]), std::string(argv[4]));
 			exit(0);
 		}
 		if (strcmp(argv[1], "random") == 0) {
-			select_random(std::string(argv[2]), atoi(argv[3]), std::string(argv[3]));
+			select_random(std::string(argv[2]), atoi(argv[3]), std::string(argv[4]));
 			exit(0);
 		}
 

@@ -8,22 +8,17 @@
 #include "Select_samples.h"
 
 bool genotype_parse(char * buffer) {
-	//cout << "buffer: " << buffer[0] << buffer[1] << buffer[2] << endl;
+	//TODO do we need to catch other situations?
 
 	if ((buffer[0] == '0' && buffer[2] == '1') || (buffer[0] == '1' && buffer[2] == '1')) {
 		return true;
-	} else if (buffer[0] == '0' && buffer[2] == '0') {
-		return false;
-	}
-	if (strncmp(buffer, "./.:0:0,0:--:NaN:NaN", 20) != 0) {
-		return false;
 	}
 	//0/0 ./.
 	return false;
 }
 
 std::vector<int>  parase_matrix(std::string vcf_file, std::vector<std::string> & names, std::map<int, bool> taken_ids, int &num) {
-	std::cout<<"Parsing... "<<endl;
+	std::cout<<"Parsing:"<<endl;
 	std::string buffer;
 	std::ifstream myfile;
 	std::vector<int>  matrix;
@@ -93,7 +88,7 @@ std::vector<int>  parase_matrix(std::string vcf_file, std::vector<std::string> &
 				}
 			}
 			if(line%10000==0){
-				std::cout <<"lines: "<<line<<std::endl;
+				std::cout <<"\tentries: "<<line<<std::endl;
 			}
 		}
 
@@ -153,6 +148,7 @@ void select_greedy(std::string vcf_file, int num_samples, std::string output) {
 		fprintf(file, "%c", '\n');
 
 		if (max == 0) {
+			std::cerr<<"No more samples to select from"<<std::endl;
 			break;
 		}
 	//	print_mat(svs_count_mat);
@@ -181,13 +177,13 @@ void select_topN(std::string vcf_file, int num_samples, std::string output) {
 	fprintf(file, "%s", "Sample\t#SVs\t#_SVs_captured\t%_SVs_captured\n");
 	std::cout << "Parsed vcf file with " << sample_names.size() << " samples" << endl;
 	int captured_svs = 0;
-	for (size_t i = 0; i < sample_names.size(); i++) {
+	for (size_t i = 0; i < sample_names.size()&& i<=num_samples; i++) {
 		//select max on main diag
 		int max = 0;
 		int max_id = -1;
 
-		//select based on greedy:
-		for (size_t j = 0; j < sample_names.size()&& i<=num_samples; j++) {
+		//select based on max num SVs:
+		for (size_t j = 0; j < sample_names.size(); j++) {
 			//	cout << svs_count_mat[j][j] << "\t";
 			if (max < svs_count_mat[j]) {
 				max = svs_count_mat[j];
@@ -196,7 +192,6 @@ void select_topN(std::string vcf_file, int num_samples, std::string output) {
 		}
 
 		captured_svs += max;
-	//	std::cout <<"RANK:\t"<<i<<"\t"<<sample_names[max_id]<<"\t"<<max<<"\t"<<captured_svs<<"\t"<< (double) captured_svs / (double) total_svs<< std::endl;
 		fprintf(file, "%s", sample_names[max_id].c_str());
 		fprintf(file, "%c", '\t');
 		fprintf(file, "%i", max);
@@ -207,6 +202,7 @@ void select_topN(std::string vcf_file, int num_samples, std::string output) {
 		fprintf(file, "%c", '\n');
 
 		if (max == 0) {
+			std::cerr<<"No more samples to select from"<<std::endl;
 			break;
 		}
 		svs_count_mat[max_id]=0;
@@ -242,12 +238,13 @@ void select_random(std::string vcf_file, int num_samples, std::string output) {
 		//select max on main diag
 		int max = 0;
 		int max_id = -1;
-		while(ids[max_id]!=-1){
+		while(max_id==-1 || ids[max_id]==-1){
 			max_id=rand()%sample_names.size();
 		}
-		ids[max_id]=-1;
+
 		max = svs_count_mat[max_id];
 		captured_svs += max;
+		//std::cout<<"entry: "<<ids[max_id]<<" "<<max<<std::endl;
 
 		fprintf(file, "%s", sample_names[max_id].c_str());
 		fprintf(file, "%c", '\t');
@@ -257,8 +254,9 @@ void select_random(std::string vcf_file, int num_samples, std::string output) {
 		fprintf(file, "%c", '\t');
 		fprintf(file, "%f", (double) captured_svs / (double) total_svs);
 		fprintf(file, "%c", '\n');
-
+		ids[max_id]=-1;
 		if (max == 0) {
+			std::cerr<<"No more samples to select from"<<std::endl;
 			break;
 		}
 	}
