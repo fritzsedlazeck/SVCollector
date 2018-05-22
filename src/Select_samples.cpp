@@ -110,9 +110,9 @@ void print_mat(std::vector<int>  svs_count_mat) {
 	}
 	std::cout << std::endl;
 	std::cout << std::endl;
-
 }
-void select_greedy(std::string vcf_file, std::string output) {
+
+void select_greedy(std::string vcf_file, int num_samples, std::string output) {
 	std::map<int, bool> taken_ids;
 	std::vector<std::string> sample_names;
 	int total_svs = 0;
@@ -127,7 +127,7 @@ void select_greedy(std::string vcf_file, std::string output) {
 	fprintf(file, "%s", "Sample\t#SVs\t#_SVs_captured\t%_SVs_captured\n");
 	std::cout << "Parsed vcf file with " << sample_names.size() << " samples" << endl;
 	int captured_svs = 0;
-	for (size_t i = 0; i < sample_names.size(); i++) {
+	for (size_t i = 0; i < sample_names.size() && i<=num_samples; i++) {
 		//select max on main diag
 		int max = 0;
 		int max_id = -1;
@@ -164,4 +164,106 @@ void select_greedy(std::string vcf_file, std::string output) {
 	}
 	fclose(file);
 }
+
+
+void select_topN(std::string vcf_file, int num_samples, std::string output) {
+	std::map<int, bool> taken_ids;
+	std::vector<std::string> sample_names;
+	int total_svs = 0;
+
+	//we can actually just use a vector instead!
+	std::vector<int> svs_count_mat = parase_matrix(vcf_file, sample_names, taken_ids, total_svs); //span a  NxN matrix and stores the shared SVs
+	//print_mat(svs_count_mat);
+
+	FILE *file;
+	file = fopen(output.c_str(), "w");
+
+	fprintf(file, "%s", "Sample\t#SVs\t#_SVs_captured\t%_SVs_captured\n");
+	std::cout << "Parsed vcf file with " << sample_names.size() << " samples" << endl;
+	int captured_svs = 0;
+	for (size_t i = 0; i < sample_names.size(); i++) {
+		//select max on main diag
+		int max = 0;
+		int max_id = -1;
+
+		//select based on greedy:
+		for (size_t j = 0; j < sample_names.size()&& i<=num_samples; j++) {
+			//	cout << svs_count_mat[j][j] << "\t";
+			if (max < svs_count_mat[j]) {
+				max = svs_count_mat[j];
+				max_id = j;
+			}
+		}
+
+		captured_svs += max;
+	//	std::cout <<"RANK:\t"<<i<<"\t"<<sample_names[max_id]<<"\t"<<max<<"\t"<<captured_svs<<"\t"<< (double) captured_svs / (double) total_svs<< std::endl;
+		fprintf(file, "%s", sample_names[max_id].c_str());
+		fprintf(file, "%c", '\t');
+		fprintf(file, "%i", max);
+		fprintf(file, "%c", '\t');
+		fprintf(file, "%i", captured_svs);
+		fprintf(file, "%c", '\t');
+		fprintf(file, "%f", (double) captured_svs / (double) total_svs);
+		fprintf(file, "%c", '\n');
+
+		if (max == 0) {
+			break;
+		}
+		svs_count_mat[max_id]=0;
+	}
+	fclose(file);
+}
+
+
+void select_random(std::string vcf_file, int num_samples, std::string output) {
+	std::map<int, bool> taken_ids;
+	std::vector<std::string> sample_names;
+	int total_svs = 0;
+
+	 srand (time(NULL));
+
+	//we can actually just use a vector instead!
+	std::vector<int> svs_count_mat = parase_matrix(vcf_file, sample_names, taken_ids, total_svs); //span a  NxN matrix and stores the shared SVs
+	//print_mat(svs_count_mat);
+
+	std::vector<int> ids;// just to avoid that the same ID is picked twice.
+	ids.resize(sample_names.size());
+	for(size_t i=0;i<ids.size();i++){
+		ids[i]=i;
+	}
+
+	FILE *file;
+	file = fopen(output.c_str(), "w");
+
+	fprintf(file, "%s", "Sample\t#SVs\t#_SVs_captured\t%_SVs_captured\n");
+	std::cout << "Parsed vcf file with " << sample_names.size() << " samples" << endl;
+	int captured_svs = 0;
+	for (size_t i = 0; i < sample_names.size()&& i<=num_samples; i++) {
+		//select max on main diag
+		int max = 0;
+		int max_id = -1;
+		while(ids[max_id]!=-1){
+			max_id=rand()%sample_names.size();
+		}
+		ids[max_id]=-1;
+		max = svs_count_mat[max_id];
+		captured_svs += max;
+
+		fprintf(file, "%s", sample_names[max_id].c_str());
+		fprintf(file, "%c", '\t');
+		fprintf(file, "%i", max);
+		fprintf(file, "%c", '\t');
+		fprintf(file, "%i", captured_svs);
+		fprintf(file, "%c", '\t');
+		fprintf(file, "%f", (double) captured_svs / (double) total_svs);
+		fprintf(file, "%c", '\n');
+
+		if (max == 0) {
+			break;
+		}
+	}
+	fclose(file);
+}
+
+
 
