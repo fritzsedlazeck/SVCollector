@@ -10,7 +10,7 @@
 bool genotype_parse(char * buffer) {
 	//TODO do we need to catch other situations?
 
-	if ((buffer[0] == '0' && buffer[2] == '0') || (buffer[0] == '.' && buffer[2] == '.')) {
+	if ((buffer[0] == '0' && buffer[2] == '0') || (strncmp(buffer,"./.:0:0,0:--:NaN:NaN",19)==0)) {
 		return false;
 	}
 	//0/0 ./.
