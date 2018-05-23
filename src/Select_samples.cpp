@@ -17,11 +17,11 @@ bool genotype_parse(char * buffer) {
 	return false;
 }
 
-std::vector<int>  parase_matrix(std::string vcf_file, std::vector<std::string> & names, std::map<int, bool> taken_ids, int &num) {
-	std::cout<<"Parsing:"<<endl;
+std::vector<int> parase_matrix(std::string vcf_file, std::vector<std::string> & names, std::map<int, bool> taken_ids, int &num) {
+	std::cout << "Parsing:" << endl;
 	std::string buffer;
 	std::ifstream myfile;
-	std::vector<int>  matrix;
+	std::vector<int> matrix;
 	myfile.open(vcf_file.c_str(), std::ifstream::in);
 	if (!myfile.good()) {
 		std::cout << "VCF Parser: could not open file: " << vcf_file.c_str() << std::endl;
@@ -29,7 +29,7 @@ std::vector<int>  parase_matrix(std::string vcf_file, std::vector<std::string> &
 	}
 
 	getline(myfile, buffer);
-	int line=0;
+	int line = 0;
 	while (!myfile.eof()) {
 		if (names.empty() && (buffer[0] == '#' && buffer[1] == 'C')) { //parse names
 			int count = 0;
@@ -60,19 +60,19 @@ std::vector<int>  parase_matrix(std::string vcf_file, std::vector<std::string> &
 			//bool discard = false;
 			int count = 0;
 			bool include = false;
-			int num=0;
+			int num = 0;
 
 			std::string entries;
-			entries.resize(names.size(),'0');
+			entries.resize(names.size(), '0');
 			for (size_t i = 0; i < buffer.size() && buffer[i] != '\0' && buffer[i] != '\n'; i++) {
 				if (count >= 9 && buffer[i - 1] == '\t') {
 					if (genotype_parse(&buffer[i])) {
 						if (taken_ids.find(num) != taken_ids.end()) {
-							include=false;
+							include = false;
 							break;
 						}
-						include=true;
-						entries[num]='1';
+						include = true;
+						entries[num] = '1';
 					}
 					num++;
 				}
@@ -80,28 +80,28 @@ std::vector<int>  parase_matrix(std::string vcf_file, std::vector<std::string> &
 					count++;
 				}
 			}
-			if(include){
-				for(size_t j=0;j<entries.size();j++){
-					if(entries[j]=='1'){
+			if (include) {
+				for (size_t j = 0; j < entries.size(); j++) {
+					if (entries[j] == '1') {
 						matrix[j]++;
 					}
 				}
 			}
-			if(line%10000==0){
-				std::cout <<"\tentries: "<<line<<std::endl;
+			if (line % 10000 == 0) {
+				std::cout << "\tentries: " << line << std::endl;
 			}
 		}
 
 		getline(myfile, buffer);
 	}
 
-	cout<<"Fin"<<endl;
+	cout << "Fin" << endl;
 	myfile.close();
 	return matrix;
 }
-void print_mat(std::vector<int>  svs_count_mat) {
+void print_mat(std::vector<int> svs_count_mat) {
 	for (size_t i = 0; i < svs_count_mat.size(); i++) {
-			std::cout << svs_count_mat[i] << "\t";
+		std::cout << svs_count_mat[i] << "\t";
 	}
 	std::cout << std::endl;
 	std::cout << std::endl;
@@ -122,7 +122,7 @@ void select_greedy(std::string vcf_file, int num_samples, std::string output) {
 	fprintf(file, "%s", "Sample\t#SVs\t#_SVs_captured\t%_SVs_captured\n");
 	std::cout << "Parsed vcf file with " << sample_names.size() << " samples" << endl;
 	int captured_svs = 0;
-	for (size_t i = 0; i < sample_names.size() && i<=num_samples; i++) {
+	for (size_t i = 0; i < sample_names.size() && i <= num_samples; i++) {
 		//select max on main diag
 		int max = 0;
 		int max_id = -1;
@@ -137,7 +137,7 @@ void select_greedy(std::string vcf_file, int num_samples, std::string output) {
 		}
 
 		captured_svs += max;
-	//	std::cout <<"RANK:\t"<<i<<"\t"<<sample_names[max_id]<<"\t"<<max<<"\t"<<captured_svs<<"\t"<< (double) captured_svs / (double) total_svs<< std::endl;
+		//	std::cout <<"RANK:\t"<<i<<"\t"<<sample_names[max_id]<<"\t"<<max<<"\t"<<captured_svs<<"\t"<< (double) captured_svs / (double) total_svs<< std::endl;
 		fprintf(file, "%s", sample_names[max_id].c_str());
 		fprintf(file, "%c", '\t');
 		fprintf(file, "%i", max);
@@ -148,10 +148,10 @@ void select_greedy(std::string vcf_file, int num_samples, std::string output) {
 		fprintf(file, "%c", '\n');
 
 		if (max == 0) {
-			std::cerr<<"No more samples to select from"<<std::endl;
+			std::cerr << "No more samples to select from" << std::endl;
 			break;
 		}
-	//	print_mat(svs_count_mat);
+		//	print_mat(svs_count_mat);
 		//print max_id and max
 		//erase joined svs over matrix given the pairwise matrix.
 		taken_ids[max_id] = true;
@@ -160,7 +160,6 @@ void select_greedy(std::string vcf_file, int num_samples, std::string output) {
 	}
 	fclose(file);
 }
-
 
 void select_topN(std::string vcf_file, int num_samples, std::string output) {
 	std::map<int, bool> taken_ids;
@@ -171,13 +170,15 @@ void select_topN(std::string vcf_file, int num_samples, std::string output) {
 	std::vector<int> svs_count_mat = parase_matrix(vcf_file, sample_names, taken_ids, total_svs); //span a  NxN matrix and stores the shared SVs
 	//print_mat(svs_count_mat);
 
+	std::vector<int> initial_counts = svs_count_mat;
+
 	FILE *file;
 	file = fopen(output.c_str(), "w");
 
 	fprintf(file, "%s", "Sample\t#SVs\t#_SVs_captured\t%_SVs_captured\n");
 	std::cout << "Parsed vcf file with " << sample_names.size() << " samples" << endl;
 	int captured_svs = 0;
-	for (size_t i = 0; i < sample_names.size()&& i<=num_samples; i++) {
+	for (size_t i = 0; i < sample_names.size() && i <= num_samples; i++) {
 		//select max on main diag
 		int max = 0;
 		int max_id = -1;
@@ -185,16 +186,18 @@ void select_topN(std::string vcf_file, int num_samples, std::string output) {
 		//select based on max num SVs:
 		for (size_t j = 0; j < sample_names.size(); j++) {
 			//	cout << svs_count_mat[j][j] << "\t";
-			if (max < svs_count_mat[j]) {
-				max = svs_count_mat[j];
+			if (max < initial_counts[j]) {
+				max = initial_counts[j];
 				max_id = j;
 			}
 		}
+		//std::cout<<"entry: "<<sample_names[max_id]<<" "<<svs_count_mat[max_id]<<std::endl;
+		captured_svs += svs_count_mat[max_id];
+		initial_counts[max_id]=0;
 
-		captured_svs += max;
 		fprintf(file, "%s", sample_names[max_id].c_str());
 		fprintf(file, "%c", '\t');
-		fprintf(file, "%i", max);
+		fprintf(file, "%i", svs_count_mat[max_id]);
 		fprintf(file, "%c", '\t');
 		fprintf(file, "%i", captured_svs);
 		fprintf(file, "%c", '\t');
@@ -202,44 +205,47 @@ void select_topN(std::string vcf_file, int num_samples, std::string output) {
 		fprintf(file, "%c", '\n');
 
 		if (max == 0) {
-			std::cerr<<"No more samples to select from"<<std::endl;
+			std::cerr << "No more samples to select from" << std::endl;
 			break;
 		}
-		svs_count_mat[max_id]=0;
+
+		taken_ids[max_id] = true;
+		total_svs = 0;
+		svs_count_mat = parase_matrix(vcf_file, sample_names, taken_ids, total_svs); //span a  NxN matrix and stores the shared SVs
+
 	}
 	fclose(file);
 }
-
 
 void select_random(std::string vcf_file, int num_samples, std::string output) {
 	std::map<int, bool> taken_ids;
 	std::vector<std::string> sample_names;
 	int total_svs = 0;
 
-	 srand (time(NULL));
+	srand(time(NULL));
 
 	//we can actually just use a vector instead!
 	std::vector<int> svs_count_mat = parase_matrix(vcf_file, sample_names, taken_ids, total_svs); //span a  NxN matrix and stores the shared SVs
 	//print_mat(svs_count_mat);
 
-	std::vector<int> ids;// just to avoid that the same ID is picked twice.
+	std::vector<int> ids;	// just to avoid that the same ID is picked twice.
 	ids.resize(sample_names.size());
-	for(size_t i=0;i<ids.size();i++){
-		ids[i]=i;
+	for (size_t i = 0; i < ids.size(); i++) {
+		ids[i] = i;
 	}
 
 	FILE *file;
 	file = fopen(output.c_str(), "w");
 
-	fprintf(file, "%s", "Sample\t#SVs\t#_SVs_captured\t%_SVs_captured\n");
+	fprintf(file, "%s", "Sample\t#SVs\t#_SVs_captured\tSVs_captured\n");
 	std::cout << "Parsed vcf file with " << sample_names.size() << " samples" << endl;
 	int captured_svs = 0;
-	for (size_t i = 0; i < sample_names.size()&& i<=num_samples; i++) {
+	for (size_t i = 0; i < sample_names.size() && i <= num_samples; i++) {
 		//select max on main diag
 		int max = 0;
 		int max_id = -1;
-		while(max_id==-1 || ids[max_id]==-1){
-			max_id=rand()%sample_names.size();
+		while (max_id == -1 || ids[max_id] == -1) {
+			max_id = rand() % sample_names.size();
 		}
 
 		max = svs_count_mat[max_id];
@@ -254,14 +260,18 @@ void select_random(std::string vcf_file, int num_samples, std::string output) {
 		fprintf(file, "%c", '\t');
 		fprintf(file, "%f", (double) captured_svs / (double) total_svs);
 		fprintf(file, "%c", '\n');
-		ids[max_id]=-1;
-		if (max == 0) {
-			std::cerr<<"No more samples to select from"<<std::endl;
-			break;
-		}
+		ids[max_id] = -1;
+		//if (max == 0) {
+		//		std::cerr << "No more samples to select from" << std::endl;
+//			break;
+//		}
+		svs_count_mat[max_id] = 0;
+		taken_ids[max_id] = true;
+		total_svs = 0;
+
+		svs_count_mat = parase_matrix(vcf_file, sample_names, taken_ids, total_svs); //span a  NxN matrix and stores the shared SVs
+
 	}
 	fclose(file);
 }
-
-
 
