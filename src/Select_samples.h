@@ -23,5 +23,6 @@ using namespace std;
 void select_greedy(std::string vcf_file, int num_samples,  std::string output);
 void select_topN(std::string vcf_file, int num_samples,  std::string output);
 void select_random(std::string vcf_file, int num_samples,  std::string output);
+void select_greedyv2(std::string vcf_file, int num_samples, std::string output);
 
 #endif /* ANALYSIS_SV_SELECT_SAMPLES_H_ */
