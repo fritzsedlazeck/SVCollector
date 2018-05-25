@@ -103,14 +103,12 @@ std::vector<int> prep_file(std::string vcf_file, std::vector<std::string> & name
 				names.push_back(id);
 			}
 
-		} else if (buffer[0] != '#') { //parse svs;
+		} else if (buffer[0] != '#') { //parse sv;
 
 			std::vector<int> tmp;
 			matrix.resize(names.size(), 0);
 
 			line++;
-
-
 			int count = 0;
 			int num = 0;
 			int alleles = 0;
@@ -176,7 +174,7 @@ void select_greedy(std::string vcf_file, int num_samples, std::string output) {
 	std::vector<int> svs_count_mat = prep_file(vcf_file, sample_names, total_svs, tmp_file);
 	FILE *file;
 	file = fopen(output.c_str(), "w");
-	cout<<"Total SV: "<<total_svs<<endl;
+	cout << "Total SV: " << total_svs << endl;
 
 	fprintf(file, "%s", "Sample\t#SVs\t#_SVs_captured\tSVs_captured\n");
 	std::cout << "Parsed vcf file with " << sample_names.size() << " samples" << endl;
@@ -222,7 +220,7 @@ void select_topN(std::string vcf_file, int num_samples, std::string output) {
 	std::string tmp_file = output;
 	tmp_file += "_tmp";
 	std::vector<int> svs_count_mat = prep_file(vcf_file, sample_names, total_svs, tmp_file);
-	cout<<"Total SV: "<<total_svs<<endl;
+	cout << "Total SV: " << total_svs << endl;
 	std::vector<int> initial_counts = svs_count_mat;
 
 	FILE *file;
@@ -316,5 +314,108 @@ void select_random(std::string vcf_file, int num_samples, std::string output) {
 
 	}
 	fclose(file);
+}
+std::map<std::string, bool> read_names(std::string chosen) {
+	std::string buffer;
+	std::ifstream myfile;
+	std::map<std::string, bool> names;
+	myfile.open(chosen.c_str(), std::ifstream::in);
+	if (!myfile.good()) {
+		std::cout << "VCF Parser: could not open file: " << chosen.c_str() << std::endl;
+		exit(0);
+	}
+
+	getline(myfile, buffer);
+	int line = 0;
+	while (!myfile.eof()) {
+		std::string name = "";
+		for (size_t i = 0; i < buffer.size() && buffer[i] != '\0' && buffer[i] != '\t'; i++) {
+			name += buffer[i];
+		}
+		names[name] = true;
+		getline(myfile, buffer);
+	}
+
+	myfile.close();
+	return names;
+}
+
+void generate_matrix(std::string vcf_file, std::string output, std::string chosen) {
+	std::map<std::string, bool> chosen_names = read_names(chosen);
+	std::string buffer;
+	std::ifstream myfile;
+	myfile.open(vcf_file.c_str(), std::ifstream::in);
+	if (!myfile.good()) {
+		std::cout << "VCF Parser: could not open file: " << vcf_file.c_str() << std::endl;
+		exit(0);
+	}
+	FILE *file;
+	file = fopen(output.c_str(), "w");
+
+	getline(myfile, buffer);
+	int line = 0;
+	while (!myfile.eof()) {
+		if ((buffer[0] == '#' && buffer[1] == 'C')) { //parse names
+			int count = 0;
+			std::string id = "";
+			for (size_t i = 0; i < buffer.size() && buffer[i] != '\0' && buffer[i] != '\n'; i++) {
+				if (count >= 9 && buffer[i] != '\t') {
+					id += buffer[i];
+				}
+				if (buffer[i] == '\t') {
+					if (!id.empty()) {
+						if (chosen_names.find(id) == chosen_names.end()) {
+							id = " ";
+						}
+						fprintf(file, "%s", id.c_str());
+						fprintf(file, "%c", '\t');
+						id = "";
+					}
+					count++;
+				}
+			}
+			if (chosen_names.find(id) == chosen_names.end()) {
+				id = " ";
+			}
+			if (!id.empty()) {
+				fprintf(file, "%s", id.c_str());
+			}
+			fprintf(file, "%c", '\n');
+
+		} else if (buffer[0] != '#') { //parse sv;
+			line++;
+			int count = 0;
+			int alleles = 0;
+			std::stringstream ss;
+			for (size_t i = 0; i < buffer.size() && buffer[i] != '\0' && buffer[i] != '\n'; i++) {
+				if (count >= 9 && buffer[i - 1] == '\t') {
+					if (genotype_parse(&buffer[i])) {
+						ss << "1\t";
+						alleles++;
+					} else {
+						ss << "0\t";
+					}
+				}
+				if (buffer[i] == '\t') {
+					count++;
+				}
+			}
+
+			if (alleles > 2) {
+				size_t size = ss.str().size();
+				//	cout<<ss.str().substr(0,size-1).c_str()<<endl;
+				fprintf(file, "%s", ss.str().substr(0, size - 1).c_str());
+				fprintf(file, "%c", '\n');
+				if (line % 10000 == 0) {
+					std::cout << "\tentries: " << line << std::endl;
+				}
+			}
+		}
+
+		getline(myfile, buffer);
+	}
+	fclose(file);
+	myfile.close();
+
 }
 
