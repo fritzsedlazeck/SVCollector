@@ -6,6 +6,7 @@
  */
 
 #include "Select_samples.h"
+#include <ctime>
 
 bool genotype_parse(char * buffer) {
 
@@ -267,7 +268,8 @@ void select_random(std::string vcf_file, int num_samples, std::string output) {
 	std::vector<std::string> sample_names;
 	int total_svs = 0;
 
-	srand(time(NULL));
+	//srand(time(NULL));
+	srand(clock());
 
 //we can actually just use a vector instead!
 	std::string tmp_file = output;
