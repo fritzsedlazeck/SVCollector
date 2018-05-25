@@ -128,7 +128,7 @@ std::vector<int> prep_file(std::string vcf_file, std::vector<std::string> & name
 				}
 			}
 
-			if (alleles > 2) {
+		//	if (alleles > 2) {
 				num_snp++;
 				std::stringstream ss;
 
@@ -146,7 +146,7 @@ std::vector<int> prep_file(std::string vcf_file, std::vector<std::string> & name
 					std::cout << "\tentries: " << line << std::endl;
 				}
 			}
-		}
+		//}
 
 		getline(myfile, buffer);
 	}
