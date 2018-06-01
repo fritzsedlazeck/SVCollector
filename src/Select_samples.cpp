@@ -6,11 +6,10 @@
  */
 
 #include "Select_samples.h"
-#include <ctime>
 
 bool genotype_parse(char * buffer) {
 
-	if ((buffer[0] == '0' && buffer[2] == '0') || (strncmp(buffer, "./.:0", 5) == 0)) {
+	if ((buffer[0] == '0' && buffer[2] == '0') || (strncmp(buffer, "./.:0", 5) == 0 || strncmp(buffer,"./.:.",4)==0)) {
 		return false;
 	}
 	return true;
@@ -112,7 +111,7 @@ std::vector<int> prep_file(std::string vcf_file, std::vector<std::string> & name
 			line++;
 			int count = 0;
 			int num = 0;
-			int alleles = 0;
+			//int alleles = 0;
 
 			std::string entries;
 			entries.resize(names.size(), '0');
@@ -120,7 +119,7 @@ std::vector<int> prep_file(std::string vcf_file, std::vector<std::string> & name
 				if (count >= 9 && buffer[i - 1] == '\t') {
 					if (genotype_parse(&buffer[i])) {
 						entries[num] = '1';
-						alleles++;
+					//	alleles++;
 					}
 					num++;
 				}
@@ -129,24 +128,24 @@ std::vector<int> prep_file(std::string vcf_file, std::vector<std::string> & name
 				}
 			}
 
-		//	if (alleles > 2) {
-				num_snp++;
-				std::stringstream ss;
-
-				for (size_t j = 0; j < entries.size(); j++) {
-					if (entries[j] == '1') {
-						//print out j
-						ss << j;
-						ss << ',';
-						matrix[j]++;
-					}
-				}
-				fprintf(file, "%s", ss.str().c_str());
-				fprintf(file, "%c", '\n');
-				if (line % 10000 == 0) {
-					std::cout << "\tentries: " << line << std::endl;
+			//	if (alleles > 2) {
+			num_snp++;
+			std::stringstream ss;
+		//	cout<<"AF: "<<alleles<<endl;
+			for (size_t j = 0; j < entries.size(); j++) {
+				if (entries[j] == '1') {
+					//print out j
+					ss << j;
+					ss << ',';
+					matrix[j]++;
 				}
 			}
+			fprintf(file, "%s", ss.str().c_str());
+			fprintf(file, "%c", '\n');
+			if (line % 10000 == 0) {
+				std::cout << "\tentries: " << line << std::endl;
+			}
+		}
 		//}
 
 		getline(myfile, buffer);
@@ -165,7 +164,6 @@ void print_mat(std::vector<int> svs_count_mat) {
 }
 
 void select_greedy(std::string vcf_file, int num_samples, std::string output) {
-	std::map<int, bool> taken_ids;
 	std::vector<std::string> sample_names;
 	int total_svs = 0;
 
@@ -211,10 +209,15 @@ void select_greedy(std::string vcf_file, int num_samples, std::string output) {
 		parse_tmp_file(tmp_file, max_id, svs_count_mat); //span a  NxN matrix and stores the shared SVs
 	}
 	fclose(file);
+	std::stringstream ss;
+	ss << "rm ";
+	ss << tmp_file;
+	system(ss.str().c_str());
+
 }
 
 void select_topN(std::string vcf_file, int num_samples, std::string output) {
-	std::map<int, bool> taken_ids;
+
 	std::vector<std::string> sample_names;
 	int total_svs = 0;
 
@@ -261,15 +264,16 @@ void select_topN(std::string vcf_file, int num_samples, std::string output) {
 		parse_tmp_file(tmp_file, max_id, svs_count_mat); //span a  NxN matrix and stores the shared SVs
 	}
 	fclose(file);
+	std::stringstream ss;
+	ss << "rm ";
+	ss << tmp_file;
+	system(ss.str().c_str());
 }
 
 void select_random(std::string vcf_file, int num_samples, std::string output) {
-	std::map<int, bool> taken_ids;
 	std::vector<std::string> sample_names;
 	int total_svs = 0;
-
-	//srand(time(NULL));
-	srand(clock());
+	srand(time(NULL));
 
 //we can actually just use a vector instead!
 	std::string tmp_file = output;
@@ -316,7 +320,13 @@ void select_random(std::string vcf_file, int num_samples, std::string output) {
 
 	}
 	fclose(file);
+	std::stringstream ss;
+	ss << "rm ";
+	ss << tmp_file;
+	system(ss.str().c_str());
 }
+
+
 std::map<std::string, bool> read_names(std::string chosen) {
 	std::string buffer;
 	std::ifstream myfile;
@@ -328,7 +338,6 @@ std::map<std::string, bool> read_names(std::string chosen) {
 	}
 
 	getline(myfile, buffer);
-	int line = 0;
 	while (!myfile.eof()) {
 		std::string name = "";
 		for (size_t i = 0; i < buffer.size() && buffer[i] != '\0' && buffer[i] != '\t'; i++) {
