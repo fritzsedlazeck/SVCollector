@@ -34,10 +34,9 @@ void parse_tmp_file(std::string tmp_file, int id_to_ignore, std::vector<double> 
 
 	while (!myfile.eof()) {
 		bool store = true;
-		double freq=atof(&buffer[0])/(double)matrix.size(); //restore the orginal allele count.
+		double freq=atof(&buffer[0]); //restore the orginal allele count.
 		for (size_t i = 0; i < buffer.size() && buffer[i] != '\0' && buffer[i] != '\n'; i++) {
-		//	if (i == 0 || buffer[i - 1] == ',') {
-			if (buffer[i-1]==':' || buffer[i - 1] == ',') {
+			if (buffer[i-1]==':' || buffer[i - 1] == ',') {//just parse the sample IDs.
 				int id = atoi(&buffer[i]);
 				if (id == id_to_ignore) { //if not yet selected This takes time!
 					store = false;
@@ -50,7 +49,7 @@ void parse_tmp_file(std::string tmp_file, int id_to_ignore, std::vector<double> 
 			for (size_t i = 0; i < buffer.size() && buffer[i] != '\0' && buffer[i] != '\n'; i++) {
 				if (buffer[i - 1] == ':' || buffer[i - 1] == ',') {
 					int id = atoi(&buffer[i]);
-					matrix[id]+=(freq); //AF
+					matrix[id]+=freq; //AF
 				}
 			}
 			fprintf(file, "%s", buffer.c_str());
@@ -69,7 +68,7 @@ void parse_tmp_file(std::string tmp_file, int id_to_ignore, std::vector<double> 
 	system(ss.str().c_str());
 }
 
-std::vector<double> prep_file(std::string vcf_file, int min_allele_count, std::vector<std::string> & names, int &num_snp, std::string output) {
+std::vector<double> prep_file(std::string vcf_file, int min_allele_count, std::vector<std::string> & names, double &num_snp, std::string output) {
 	std::cout << "Initial assessment of VCF:" << endl;
 	std::string buffer;
 	std::ifstream myfile;
@@ -84,6 +83,7 @@ std::vector<double> prep_file(std::string vcf_file, int min_allele_count, std::v
 
 	getline(myfile, buffer);
 	int line = 0;
+
 	while (!myfile.eof()) {
 		if (names.empty() && (buffer[0] == '#' && buffer[1] == 'C')) { //parse names
 			int count = 0;
@@ -106,17 +106,19 @@ std::vector<double> prep_file(std::string vcf_file, int min_allele_count, std::v
 
 		} else if (buffer[0] != '#') { //parse variants;
 
-			std::vector<int> tmp;
 			matrix.resize(names.size(), 0);
-
 			line++;
 			int count = 0;
 			int num = 0;
 			double alleles = 0;
+			double af=-1; //just used for adams selection.
 
 			std::string entries;
 			entries.resize(names.size(), '0');
 			for (size_t i = 0; i < buffer.size() && buffer[i] != '\0' && buffer[i] != '\n'; i++) {
+				if(count==7 && strncmp(&buffer[i],";AF=",4)==0){
+					af=atof(&buffer[i+4]);
+				}
 				if (count >= 9 && buffer[i - 1] == '\t') {
 					if (genotype_parse(&buffer[i])) {
 						entries[num] = '1';
@@ -130,20 +132,26 @@ std::vector<double> prep_file(std::string vcf_file, int min_allele_count, std::v
 			}
 
 			if (alleles > (double)min_allele_count) {
-				num_snp++;
+
+				// use global AF !
 				std::stringstream ss;
-			//	cout << "AF: " << alleles << endl;
-				ss<<alleles;
+				double freq=0;
+				if(af>-1){ // if AF is giving in the format field.
+					freq=af;
+				}else{ //else we compute it:
+					freq=(alleles/(double(names.size())));
+				}
+				ss<<freq;
+				num_snp+=freq;
 				ss<<':';
 				for (size_t j = 0; j < entries.size(); j++) {
 					if (entries[j] == '1') {
 						//print out j
 						ss << j;
 						ss << ',';
-						matrix[j]+=(alleles/(double(names.size()))); //AF!
+						matrix[j]+=freq; //AF!
 					}
 				}
-				//cout<<ss<<endl;
 				fprintf(file, "%s", ss.str().c_str());
 				fprintf(file, "%c", '\n');
 				if (line % 10000 == 0) {
@@ -169,7 +177,7 @@ void print_mat(std::vector<int> svs_count_mat) {
 
 void select_greedy(std::string vcf_file, int min_allele_count, int num_samples, std::string output) {
 	std::vector<std::string> sample_names;
-	int total_svs = 0;
+	double total_svs = 0;
 
 	//we can actually just use a vector instead!
 	std::string tmp_file = output;
@@ -202,7 +210,7 @@ void select_greedy(std::string vcf_file, int min_allele_count, int num_samples, 
 		fprintf(file, "%c", '\t');
 		fprintf(file, "%f", captured_svs);
 		fprintf(file, "%c", '\t');
-		fprintf(file, "%f", (double) captured_svs / (double) total_svs);
+		fprintf(file, "%f", captured_svs / total_svs);
 		fprintf(file, "%c", '\n');
 
 		if (max == 0) {
@@ -222,7 +230,7 @@ void select_greedy(std::string vcf_file, int min_allele_count, int num_samples, 
 void select_topN(std::string vcf_file, int num_samples, std::string output) {
 
 	std::vector<std::string> sample_names;
-	int total_svs = 0;
+	double total_svs = 0;
 
 	std::string tmp_file = output;
 	tmp_file += "_tmp";
@@ -275,7 +283,7 @@ void select_topN(std::string vcf_file, int num_samples, std::string output) {
 
 void select_random(std::string vcf_file, int num_samples, std::string output) {
 	std::vector<std::string> sample_names;
-	int total_svs = 0;
+	double total_svs = 0;
 	srand(time(NULL));
 
 //we can actually just use a vector instead!
