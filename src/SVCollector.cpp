@@ -33,10 +33,11 @@ int main(int argc, char **argv) {
 		return -1;
 	} else {
 		if (strcmp(argv[1], "greedy") == 0) {
-			if (argc == 5) {
-				select_greedy(std::string(argv[2]), atoi(argv[3]), std::string(argv[4]));
+			if (argc == 6) {
+				select_greedy(std::string(argv[2]), atoi(argv[3]), atoi(argv[4]), std::string(argv[5]));
 			} else {
 				std::cerr << "Input VCF file" << std::endl;
+				std::cerr << "Min allele count (-1 to disable)"<< std::endl;
 				std::cerr << "Number of samples to select" << std::endl;
 				std::cerr << "Output file" << std::endl;
 			}

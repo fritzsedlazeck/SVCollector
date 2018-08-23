@@ -8,14 +8,13 @@
 #include "Select_samples.h"
 
 bool genotype_parse(char * buffer) {
-
-	if ((buffer[0] == '0' && buffer[2] == '0') || (strncmp(buffer, "./.:0", 5) == 0 || strncmp(buffer,"./.:.",4)==0)) {
+	if ((buffer[0] == '.' || (buffer[0] == '0' && buffer[2] == '0')) || (strncmp(buffer, "./.:0", 5) == 0 || strncmp(buffer, "./.:.", 4) == 0)) {
 		return false;
 	}
 	return true;
 }
 
-void parse_tmp_file(std::string tmp_file, int id_to_ignore, std::vector<int> & matrix) {
+void parse_tmp_file(std::string tmp_file, int id_to_ignore, std::vector<double> & matrix) {
 	std::string buffer;
 	std::ifstream myfile;
 	myfile.open(tmp_file.c_str(), std::ifstream::in);
@@ -35,8 +34,10 @@ void parse_tmp_file(std::string tmp_file, int id_to_ignore, std::vector<int> & m
 
 	while (!myfile.eof()) {
 		bool store = true;
+		double freq=atof(&buffer[0])/(double)matrix.size(); //restore the orginal allele count.
 		for (size_t i = 0; i < buffer.size() && buffer[i] != '\0' && buffer[i] != '\n'; i++) {
-			if (i == 0 || buffer[i - 1] == ',') {
+		//	if (i == 0 || buffer[i - 1] == ',') {
+			if (buffer[i-1]==':' || buffer[i - 1] == ',') {
 				int id = atoi(&buffer[i]);
 				if (id == id_to_ignore) { //if not yet selected This takes time!
 					store = false;
@@ -47,9 +48,9 @@ void parse_tmp_file(std::string tmp_file, int id_to_ignore, std::vector<int> & m
 
 		if (store) {
 			for (size_t i = 0; i < buffer.size() && buffer[i] != '\0' && buffer[i] != '\n'; i++) {
-				if (i == 0 || buffer[i - 1] == ',') {
+				if (buffer[i - 1] == ':' || buffer[i - 1] == ',') {
 					int id = atoi(&buffer[i]);
-					matrix[id]++;
+					matrix[id]+=(freq); //AF
 				}
 			}
 			fprintf(file, "%s", buffer.c_str());
@@ -68,11 +69,11 @@ void parse_tmp_file(std::string tmp_file, int id_to_ignore, std::vector<int> & m
 	system(ss.str().c_str());
 }
 
-std::vector<int> prep_file(std::string vcf_file, std::vector<std::string> & names, int &num_snp, std::string output) {
+std::vector<double> prep_file(std::string vcf_file, int min_allele_count, std::vector<std::string> & names, int &num_snp, std::string output) {
 	std::cout << "Initial assessment of VCF:" << endl;
 	std::string buffer;
 	std::ifstream myfile;
-	std::vector<int> matrix;
+	std::vector<double> matrix;
 	myfile.open(vcf_file.c_str(), std::ifstream::in);
 	if (!myfile.good()) {
 		std::cout << "VCF Parser: could not open file: " << vcf_file.c_str() << std::endl;
@@ -103,7 +104,7 @@ std::vector<int> prep_file(std::string vcf_file, std::vector<std::string> & name
 				names.push_back(id);
 			}
 
-		} else if (buffer[0] != '#') { //parse sv;
+		} else if (buffer[0] != '#') { //parse variants;
 
 			std::vector<int> tmp;
 			matrix.resize(names.size(), 0);
@@ -111,7 +112,7 @@ std::vector<int> prep_file(std::string vcf_file, std::vector<std::string> & name
 			line++;
 			int count = 0;
 			int num = 0;
-			//int alleles = 0;
+			double alleles = 0;
 
 			std::string entries;
 			entries.resize(names.size(), '0');
@@ -119,7 +120,7 @@ std::vector<int> prep_file(std::string vcf_file, std::vector<std::string> & name
 				if (count >= 9 && buffer[i - 1] == '\t') {
 					if (genotype_parse(&buffer[i])) {
 						entries[num] = '1';
-					//	alleles++;
+						alleles++;
 					}
 					num++;
 				}
@@ -128,25 +129,28 @@ std::vector<int> prep_file(std::string vcf_file, std::vector<std::string> & name
 				}
 			}
 
-			//	if (alleles > 2) {
-			num_snp++;
-			std::stringstream ss;
-		//	cout<<"AF: "<<alleles<<endl;
-			for (size_t j = 0; j < entries.size(); j++) {
-				if (entries[j] == '1') {
-					//print out j
-					ss << j;
-					ss << ',';
-					matrix[j]++;
+			if (alleles > (double)min_allele_count) {
+				num_snp++;
+				std::stringstream ss;
+			//	cout << "AF: " << alleles << endl;
+				ss<<alleles;
+				ss<<':';
+				for (size_t j = 0; j < entries.size(); j++) {
+					if (entries[j] == '1') {
+						//print out j
+						ss << j;
+						ss << ',';
+						matrix[j]+=(alleles/(double(names.size()))); //AF!
+					}
+				}
+				//cout<<ss<<endl;
+				fprintf(file, "%s", ss.str().c_str());
+				fprintf(file, "%c", '\n');
+				if (line % 10000 == 0) {
+					std::cout << "\tentries: " << line << std::endl;
 				}
 			}
-			fprintf(file, "%s", ss.str().c_str());
-			fprintf(file, "%c", '\n');
-			if (line % 10000 == 0) {
-				std::cout << "\tentries: " << line << std::endl;
-			}
 		}
-		//}
 
 		getline(myfile, buffer);
 	}
@@ -163,24 +167,24 @@ void print_mat(std::vector<int> svs_count_mat) {
 	std::cout << std::endl;
 }
 
-void select_greedy(std::string vcf_file, int num_samples, std::string output) {
+void select_greedy(std::string vcf_file, int min_allele_count, int num_samples, std::string output) {
 	std::vector<std::string> sample_names;
 	int total_svs = 0;
 
 	//we can actually just use a vector instead!
 	std::string tmp_file = output;
 	tmp_file += "_tmp";
-	std::vector<int> svs_count_mat = prep_file(vcf_file, sample_names, total_svs, tmp_file);
+	std::vector<double> svs_count_mat = prep_file(vcf_file,min_allele_count, sample_names, total_svs, tmp_file);
 	FILE *file;
 	file = fopen(output.c_str(), "w");
 	cout << "Total SV: " << total_svs << endl;
 
 	fprintf(file, "%s", "Sample\t#SVs\t#_SVs_captured\tSVs_captured\n");
 	std::cout << "Parsed vcf file with " << sample_names.size() << " samples" << endl;
-	int captured_svs = 0;
+	double captured_svs = 0;
 	for (size_t i = 0; i < sample_names.size() && i < num_samples; i++) {
 		//select max on main diag
-		int max = 0;
+		double max = 0;
 		int max_id = -1;
 
 		//select based on greedy:
@@ -194,9 +198,9 @@ void select_greedy(std::string vcf_file, int num_samples, std::string output) {
 		captured_svs += max;
 		fprintf(file, "%s", sample_names[max_id].c_str());
 		fprintf(file, "%c", '\t');
-		fprintf(file, "%i", max);
+		fprintf(file, "%f", max);
 		fprintf(file, "%c", '\t');
-		fprintf(file, "%i", captured_svs);
+		fprintf(file, "%f", captured_svs);
 		fprintf(file, "%c", '\t');
 		fprintf(file, "%f", (double) captured_svs / (double) total_svs);
 		fprintf(file, "%c", '\n');
@@ -213,7 +217,6 @@ void select_greedy(std::string vcf_file, int num_samples, std::string output) {
 	ss << "rm ";
 	ss << tmp_file;
 	system(ss.str().c_str());
-
 }
 
 void select_topN(std::string vcf_file, int num_samples, std::string output) {
@@ -223,19 +226,19 @@ void select_topN(std::string vcf_file, int num_samples, std::string output) {
 
 	std::string tmp_file = output;
 	tmp_file += "_tmp";
-	std::vector<int> svs_count_mat = prep_file(vcf_file, sample_names, total_svs, tmp_file);
+	std::vector<double> svs_count_mat = prep_file(vcf_file, 0,sample_names, total_svs, tmp_file);
 	cout << "Total SV: " << total_svs << endl;
-	std::vector<int> initial_counts = svs_count_mat;
+	std::vector<double> initial_counts = svs_count_mat;
 
 	FILE *file;
 	file = fopen(output.c_str(), "w");
 
 	fprintf(file, "%s", "Sample\t#SVs\t#_SVs_captured\t%_SVs_captured\n");
 	std::cout << "Parsed vcf file with " << sample_names.size() << " samples" << endl;
-	int captured_svs = 0;
+	double captured_svs = 0;
 	for (size_t i = 0; i < sample_names.size() && i < num_samples; i++) {
 		//select max on main diag
-		int max = 0;
+		double max = 0;
 		int max_id = -1;
 
 		//select based on max num SVs:
@@ -248,9 +251,9 @@ void select_topN(std::string vcf_file, int num_samples, std::string output) {
 		captured_svs += svs_count_mat[max_id];
 		fprintf(file, "%s", sample_names[max_id].c_str());
 		fprintf(file, "%c", '\t');
-		fprintf(file, "%i", svs_count_mat[max_id]);
+		fprintf(file, "%f", svs_count_mat[max_id]);
 		fprintf(file, "%c", '\t');
-		fprintf(file, "%i", captured_svs);
+		fprintf(file, "%f", captured_svs);
 		fprintf(file, "%c", '\t');
 		fprintf(file, "%f", (double) captured_svs / (double) total_svs);
 		fprintf(file, "%c", '\n');
@@ -278,7 +281,7 @@ void select_random(std::string vcf_file, int num_samples, std::string output) {
 //we can actually just use a vector instead!
 	std::string tmp_file = output;
 	tmp_file += "_tmp";
-	std::vector<int> svs_count_mat = prep_file(vcf_file, sample_names, total_svs, tmp_file);
+	std::vector<double> svs_count_mat = prep_file(vcf_file,0, sample_names, total_svs, tmp_file);
 //print_mat(svs_count_mat);
 
 	std::vector<int> ids;	// just to avoid that the same ID is picked twice.
@@ -292,10 +295,10 @@ void select_random(std::string vcf_file, int num_samples, std::string output) {
 
 	fprintf(file, "%s", "Sample\t#SVs\t#_SVs_captured\tSVs_captured\n");
 	std::cout << "Parsed vcf file with " << sample_names.size() << " samples" << endl;
-	int captured_svs = 0;
+	double captured_svs = 0;
 	for (size_t i = 0; i < sample_names.size() && i < num_samples; i++) {
 		//select max on main diag
-		int max = 0;
+		double max = 0;
 		int max_id = -1;
 		while (max_id == -1 || ids[max_id] == -1) {
 			max_id = rand() % sample_names.size();
@@ -307,9 +310,9 @@ void select_random(std::string vcf_file, int num_samples, std::string output) {
 
 		fprintf(file, "%s", sample_names[max_id].c_str());
 		fprintf(file, "%c", '\t');
-		fprintf(file, "%i", max);
+		fprintf(file, "%f", max);
 		fprintf(file, "%c", '\t');
-		fprintf(file, "%i", captured_svs);
+		fprintf(file, "%f", captured_svs);
 		fprintf(file, "%c", '\t');
 		fprintf(file, "%f", (double) captured_svs / (double) total_svs);
 		fprintf(file, "%c", '\n');
@@ -325,7 +328,6 @@ void select_random(std::string vcf_file, int num_samples, std::string output) {
 	ss << tmp_file;
 	system(ss.str().c_str());
 }
-
 
 std::map<std::string, bool> read_names(std::string chosen) {
 	std::string buffer;
