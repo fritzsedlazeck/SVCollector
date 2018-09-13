@@ -21,8 +21,8 @@ RANDOMTRIALS=10
 
 echo "Analyzing $VCF"
 
-echo " computing greedy selection"
-$SVC greedy $VCF $NUMTOPLOT $OUTDIR/$VCFB.greedy >& $OUTDIR/$VCFB.greedy.log
+echo " computing greedy selection (disable min allele freq)"
+$SVC greedy $VCF -1 $NUMTOPLOT $OUTDIR/$VCFB.greedy >& $OUTDIR/$VCFB.greedy.log
 
 echo " computing topN selection"
 $SVC topN $VCF $NUMTOPLOT $OUTDIR/$VCFB.topN >& $OUTDIR/$VCFB.topN.log
