@@ -14,7 +14,7 @@ bool genotype_parse(char * buffer) {
 	return true;
 }
 
-void parse_tmp_file(std::string tmp_file, int id_to_ignore, std::vector<double> & matrix) {
+void parse_tmp_file(std::string tmp_file, int id_to_ignore, std::vector<double> & matrix,bool use_alleles) {
 	std::string buffer;
 	std::ifstream myfile;
 	myfile.open(tmp_file.c_str(), std::ifstream::in);
@@ -34,7 +34,10 @@ void parse_tmp_file(std::string tmp_file, int id_to_ignore, std::vector<double> 
 
 	while (!myfile.eof()) {
 		bool store = true;
-		double freq=atof(&buffer[0]); //restore the orginal allele count.
+		double freq=1;
+		if(use_alleles){
+			freq=atof(&buffer[0]); //restore the original allele count.
+		}
 		for (size_t i = 0; i < buffer.size() && buffer[i] != '\0' && buffer[i] != '\n'; i++) {
 			if (buffer[i-1]==':' || buffer[i - 1] == ',') {//just parse the sample IDs.
 				int id = atoi(&buffer[i]);
@@ -68,7 +71,7 @@ void parse_tmp_file(std::string tmp_file, int id_to_ignore, std::vector<double> 
 	system(ss.str().c_str());
 }
 
-std::vector<double> prep_file(std::string vcf_file, int min_allele_count, std::vector<std::string> & names, double &num_snp, std::string output) {
+std::vector<double> prep_file(std::string vcf_file, int min_allele_count, std::vector<std::string> & names, double &num_snp, std::string output,bool use_alleles) {
 	std::cout << "Initial assessment of VCF:" << endl;
 	std::string buffer;
 	std::ifstream myfile;
@@ -83,7 +86,7 @@ std::vector<double> prep_file(std::string vcf_file, int min_allele_count, std::v
 
 	getline(myfile, buffer);
 	int line = 0;
-
+	num_snp=0;
 	while (!myfile.eof()) {
 		if (names.empty() && (buffer[0] == '#' && buffer[1] == 'C')) { //parse names
 			int count = 0;
@@ -135,12 +138,13 @@ std::vector<double> prep_file(std::string vcf_file, int min_allele_count, std::v
 
 				// use global AF !
 				std::stringstream ss;
-				double freq=0;
-				if(af>-1){ // if AF is giving in the format field.
+				double freq=1;
+				if(use_alleles&& af>-1){ // if AF is givenin the format field.
 					freq=af;
-				}else{ //else we compute it:
+				}else if(use_alleles){ //else we compute it:
 					freq=(alleles/(double(names.size())));
 				}
+		//		cout<<freq<< " " <<alleles<<endl;
 				ss<<freq;
 				num_snp+=freq;
 				ss<<':';
@@ -149,7 +153,7 @@ std::vector<double> prep_file(std::string vcf_file, int min_allele_count, std::v
 						//print out j
 						ss << j;
 						ss << ',';
-						matrix[j]+=freq; //AF!
+						matrix[j]+=freq;
 					}
 				}
 				fprintf(file, "%s", ss.str().c_str());
@@ -175,14 +179,14 @@ void print_mat(std::vector<int> svs_count_mat) {
 	std::cout << std::endl;
 }
 
-void select_greedy(std::string vcf_file, int min_allele_count, int num_samples, std::string output) {
+void select_greedy(std::string vcf_file, int min_allele_count, int num_samples, int alleles, std::string output) {
 	std::vector<std::string> sample_names;
 	double total_svs = 0;
 
 	//we can actually just use a vector instead!
 	std::string tmp_file = output;
 	tmp_file += "_tmp";
-	std::vector<double> svs_count_mat = prep_file(vcf_file,min_allele_count, sample_names, total_svs, tmp_file);
+	std::vector<double> svs_count_mat = prep_file(vcf_file,min_allele_count, sample_names, total_svs, tmp_file,(bool)(alleles==1));
 	FILE *file;
 	file = fopen(output.c_str(), "w");
 	cout << "Total SV: " << total_svs << endl;
@@ -218,7 +222,7 @@ void select_greedy(std::string vcf_file, int min_allele_count, int num_samples, 
 			break;
 		}
 		//erase joined svs
-		parse_tmp_file(tmp_file, max_id, svs_count_mat); //span a  NxN matrix and stores the shared SVs
+		parse_tmp_file(tmp_file, max_id, svs_count_mat,(bool)(alleles==1)); //span a  NxN matrix and stores the shared SVs
 	}
 	fclose(file);
 	std::stringstream ss;
@@ -234,7 +238,7 @@ void select_topN(std::string vcf_file, int num_samples, std::string output) {
 
 	std::string tmp_file = output;
 	tmp_file += "_tmp";
-	std::vector<double> svs_count_mat = prep_file(vcf_file, 0,sample_names, total_svs, tmp_file);
+	std::vector<double> svs_count_mat = prep_file(vcf_file, 0,sample_names, total_svs, tmp_file,false);
 	cout << "Total SV: " << total_svs << endl;
 	std::vector<double> initial_counts = svs_count_mat;
 
@@ -272,7 +276,7 @@ void select_topN(std::string vcf_file, int num_samples, std::string output) {
 		}
 
 		initial_counts[max_id] = 0;
-		parse_tmp_file(tmp_file, max_id, svs_count_mat); //span a  NxN matrix and stores the shared SVs
+		parse_tmp_file(tmp_file, max_id, svs_count_mat,false); //span a  NxN matrix and stores the shared SVs
 	}
 	fclose(file);
 	std::stringstream ss;
@@ -289,7 +293,7 @@ void select_random(std::string vcf_file, int num_samples, std::string output) {
 //we can actually just use a vector instead!
 	std::string tmp_file = output;
 	tmp_file += "_tmp";
-	std::vector<double> svs_count_mat = prep_file(vcf_file,0, sample_names, total_svs, tmp_file);
+	std::vector<double> svs_count_mat = prep_file(vcf_file,0, sample_names, total_svs, tmp_file,false);
 //print_mat(svs_count_mat);
 
 	std::vector<int> ids;	// just to avoid that the same ID is picked twice.
@@ -327,7 +331,7 @@ void select_random(std::string vcf_file, int num_samples, std::string output) {
 		ids[max_id] = -1;
 
 		svs_count_mat[max_id] = 0;
-		parse_tmp_file(tmp_file, max_id, svs_count_mat); //span a  NxN matrix and stores the shared SVs
+		parse_tmp_file(tmp_file, max_id, svs_count_mat,false); //span a  NxN matrix and stores the shared SVs
 
 	}
 	fclose(file);
