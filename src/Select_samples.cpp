@@ -40,7 +40,7 @@ void parse_tmp_file(std::string tmp_file, int id_to_ignore, std::vector<double> 
 		if(use_alleles){
 			freq=atof(&buffer[0]); //restore the original allele count.
 		}
-		for (size_t i = 0; i < buffer.size() && buffer[i] != '\0' && buffer[i] != '\n'; i++) {
+		for (size_t i = 1; i < buffer.size() && buffer[i] != '\0' && buffer[i] != '\n'; i++) {
 			if (buffer[i-1]==':' || buffer[i - 1] == ',') {//just parse the sample IDs.
 				int id = atoi(&buffer[i]);
 				if (id == id_to_ignore) { //if not yet selected This takes time!
