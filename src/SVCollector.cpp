@@ -24,6 +24,7 @@ int main(int argc, char **argv) {
 
 	//TODO make some histograms.
 
+
 	if (argc == 1) {
 		std::cerr << "./SVCollector <option> my_svs_vcf_file output_ranked" << std::endl;
 		std::cerr << "<option>: greedy, topN or random " << std::endl;

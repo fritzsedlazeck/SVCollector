@@ -8,9 +8,11 @@
 #include "Select_samples.h"
 
 bool genotype_parse(char * buffer) {
-	if ((buffer[0] == '.' || (buffer[0] == '0' && buffer[2] == '0')) || (strncmp(buffer, "./.:0", 5) == 0 || strncmp(buffer, "./.:.", 4) == 0)) {
+//buffer[0] == '.'
+	if (((buffer[0] == '0' && buffer[2] == '0')) || (strncmp(buffer, "./.:0", 5) == 0 || strncmp(buffer, "./.:.", 5) == 0)) {
 		return false;
 	}
+
 	return true;
 }
 
@@ -144,7 +146,7 @@ std::vector<double> prep_file(std::string vcf_file, int min_allele_count, std::v
 				}else if(use_alleles){ //else we compute it:
 					freq=(alleles/(double(names.size())));
 				}
-		//		cout<<freq<< " " <<alleles<<endl;
+
 				ss<<freq;
 				num_snp+=freq;
 				ss<<':';
@@ -156,6 +158,8 @@ std::vector<double> prep_file(std::string vcf_file, int min_allele_count, std::v
 						matrix[j]+=freq;
 					}
 				}
+
+			//	cout<<ss.str()<<endl;
 				fprintf(file, "%s", ss.str().c_str());
 				fprintf(file, "%c", '\n');
 				if (line % 10000 == 0) {
@@ -201,9 +205,11 @@ void select_greedy(std::string vcf_file, int min_allele_count, int num_samples, 
 
 		//select based on greedy:
 		for (size_t j = 0; j < sample_names.size(); j++) {
+			//cout<<"Mat "<<svs_count_mat[i]<<endl;
 			if (max < svs_count_mat[j]) {
 				max = svs_count_mat[j];
 				max_id = j;
+			//	cout<<"test: "<<max << " "<<max_id<<endl;
 			}
 		}
 
