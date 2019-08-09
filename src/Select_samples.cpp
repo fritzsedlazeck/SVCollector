@@ -9,7 +9,7 @@
 
 bool genotype_parse(char * buffer) {
 //buffer[0] == '.'
-	if (((buffer[0] == '0' && buffer[2] == '0')) || (strncmp(buffer, "./.:0", 5) == 0 || strncmp(buffer, "./.:.", 5) == 0) || buffer[0]=='.') {
+	if (((buffer[0] == '0' && buffer[2] == '0')) || (strncmp(buffer, "./.:0", 5) == 0 || strncmp(buffer, "./.:.", 5) == 0) || buffer[0] == '.') {
 		return false;
 	}
 
@@ -51,7 +51,7 @@ void parse_tmp_file(std::string tmp_file, int id_to_ignore, std::vector<double> 
 		}
 
 		if (store) {
-			for (size_t i = 0; i < buffer.size() && buffer[i] != '\0' && buffer[i] != '\n'; i++) {
+			for (size_t i = 1; i < buffer.size() && buffer[i] != '\0' && buffer[i] != '\n'; i++) {
 				if (buffer[i - 1] == ':' || buffer[i - 1] == ',') {
 					int id = atoi(&buffer[i]);
 					matrix[id] += freq; //AF
@@ -129,7 +129,7 @@ std::vector<double> prep_file(std::string vcf_file, int min_allele_count, std::v
 			double af = -1; //just used for adams selection.
 			std::string entries = "";
 			entries.resize(names.size(), '0');
-			for (size_t i = 0; i < buffer.size() && buffer[i] != '\0' && buffer[i] != '\n' && num<names.size() ; i++) {
+			for (size_t i = 0; i < buffer.size() && buffer[i] != '\0' && buffer[i] != '\n' && num < names.size(); i++) {
 				if (count == 7 && strncmp(&buffer[i], ";AF=", 4) == 0) {
 					af = atof(&buffer[i + 4]);
 				}
@@ -151,10 +151,11 @@ std::vector<double> prep_file(std::string vcf_file, int min_allele_count, std::v
 				if (use_alleles && af > -1) { // if AF is given in the format field.
 					freq = af;
 				} else if (use_alleles) { //else we compute it:
+					cerr<<"We compute"<<endl;
 					freq = (alleles / (double(names.size())));
 				}
 
-				fprintf(file, "%e", freq);
+				fprintf(file, "%f", freq);
 				//ss << freq;
 				num_snp += freq;
 				fprintf(file, "%c", ':');
@@ -166,8 +167,8 @@ std::vector<double> prep_file(std::string vcf_file, int min_allele_count, std::v
 						fprintf(file, "%c", ',');
 						//ss << j;
 						//ss << ',';
-						if(j<matrix.size()){
-							matrix[j]+= freq;
+						if (j < matrix.size()) {
+							matrix[j] += freq;
 						}
 					}
 				}
@@ -181,7 +182,7 @@ std::vector<double> prep_file(std::string vcf_file, int min_allele_count, std::v
 		}
 		getline(myfile, buffer);
 	}
-	cout << "done2 " << endl;
+//	cout << "done2 " << endl;
 	fclose(file);
 	myfile.close();
 	return matrix;
@@ -195,9 +196,40 @@ void print_mat(std::vector<int> svs_count_mat) {
 	std::cout << std::endl;
 }
 
-void select_greedy(std::string vcf_file, int min_allele_count, int num_samples, int alleles, std::string output) {
+std::map<std::string, bool> parse_names(std::string preselected_file) {
+	std::string buffer;
+	std::ifstream myfile;
+	myfile.open(preselected_file.c_str(), std::ifstream::in);
+	if (!myfile.good()) {
+		std::cout << "VCF Parser: could not open file: " << preselected_file.c_str() << std::endl;
+		exit(0);
+	}
+	std::map<std::string, bool> preselected_names;
+	getline(myfile, buffer);
+	while (!myfile.eof()) {
+
+		std::string name = "";
+		for (size_t i = 0; i < buffer.size() && buffer[i] != '\0' && buffer[i] != '\n'; i++) {
+			name += buffer[i];
+		}
+		preselected_names[name] = true;
+		getline(myfile, buffer);
+	}
+	myfile.close();
+	return preselected_names;
+
+}
+
+void select_greedy(std::string vcf_file, int min_allele_count, int num_samples, int alleles, std::string output, std::string preselected_file) {
 	std::vector<std::string> sample_names;
 	double total_svs = 0;
+
+	std::map<std::string, bool> preselected_names;
+	if (!preselected_file.empty()) {
+		cout << "Parsing preselected names:";
+		preselected_names = parse_names(preselected_file);
+		cout<<preselected_names.size()<<endl;
+	}
 
 	//we can actually just use a vector instead!
 	std::string tmp_file = output;
@@ -219,17 +251,34 @@ void select_greedy(std::string vcf_file, int min_allele_count, int num_samples, 
 		//select max on main diag
 		double max = 0;
 		int max_id = -1;
+		if (i >= preselected_names.size()) {
+			//select based on greedy:
+			for (size_t j = 0; j < sample_names.size(); j++) {
+				//cout<<"Mat "<<svs_count_mat[i]<<endl;
+				if (max < svs_count_mat[j]) {
+					max = svs_count_mat[j];
+					max_id = j;
+					//	cout<<"test: "<<max << " "<<max_id<<endl;
+				}
+			}
+		} else { //take from pre selection
+			std::map<std::string, bool>::iterator p=preselected_names.begin();
+			size_t j=0;
+			while(j<i){// very strange..
+				p++;
+				j++;
+			}
 
-		//select based on greedy:
-		for (size_t j = 0; j < sample_names.size(); j++) {
-			//cout<<"Mat "<<svs_count_mat[i]<<endl;
-			if (max < svs_count_mat[j]) {
-				max = svs_count_mat[j];
-				max_id = j;
-				//	cout<<"test: "<<max << " "<<max_id<<endl;
+			std::string name=(*p).first;
+			for(size_t j=0;j<sample_names.size();j++){
+				if(strcmp(sample_names[j].c_str(),name.c_str())==0){
+					max_id = j;
+					cout<<"Preselected hit"<<endl;
+					max = svs_count_mat[j];
+					break;
+				}
 			}
 		}
-
 		if (max == 0) {
 			std::cerr << "No more samples to select from" << std::endl;
 			break;
@@ -248,11 +297,12 @@ void select_greedy(std::string vcf_file, int min_allele_count, int num_samples, 
 		//erase joined svs
 		parse_tmp_file(tmp_file, max_id, svs_count_mat, (bool) (alleles == 1));						//span a  NxN matrix and stores the shared SVs
 	}
+	cout<<"Finishing... "<<endl;
 	fclose(file);
 	std::stringstream ss;
 	ss << "rm ";
 	ss << tmp_file;
-//	system(ss.str().c_str());
+	system(ss.str().c_str());
 }
 
 void select_topN(std::string vcf_file, int num_samples, std::string output) {
