@@ -8,7 +8,7 @@ fi
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 SVC=$DIR/src/SVCollector 
-PLOT=$DIR/src/SVCollectorPlot.R
+PLOT=$DIR/vis/SVCollectorPlot.R
 
 VCF=$1
 NUMTOPLOT=$2
