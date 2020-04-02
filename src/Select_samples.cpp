@@ -119,7 +119,7 @@ std::vector<double> prep_file(std::string vcf_file, int min_allele_count, std::v
 		} else if (buffer[0] != '#') { //parse variants;
 			if (names.empty()) {
 				cerr << "Error no sample names were found in the VCF file! " << endl;
-				exit(0);
+				exit(1);
 			}
 			matrix.resize(names.size(), 0);
 			line++;
@@ -151,7 +151,6 @@ std::vector<double> prep_file(std::string vcf_file, int min_allele_count, std::v
 				if (use_alleles && af > -1) { // if AF is given in the format field.
 					freq = af;
 				} else if (use_alleles) { //else we compute it:
-					cerr<<"We compute"<<endl;
 					freq = (alleles / (double(names.size())));
 				}
 
@@ -182,6 +181,7 @@ std::vector<double> prep_file(std::string vcf_file, int min_allele_count, std::v
 		}
 		getline(myfile, buffer);
 	}
+
 //	cout << "done2 " << endl;
 	fclose(file);
 	myfile.close();
@@ -305,14 +305,14 @@ void select_greedy(std::string vcf_file, int min_allele_count, int num_samples, 
 	system(ss.str().c_str());
 }
 
-void select_topN(std::string vcf_file, int num_samples, std::string output) {
+void select_topN(std::string vcf_file, int num_samples, bool use_alleles, std::string output) {
 
 	std::vector<std::string> sample_names;
 	double total_svs = 0;
 
 	std::string tmp_file = output;
 	tmp_file += "_tmp";
-	std::vector<double> svs_count_mat = prep_file(vcf_file, 0, sample_names, total_svs, tmp_file, false);
+	std::vector<double> svs_count_mat = prep_file(vcf_file, 0, sample_names, total_svs, tmp_file, use_alleles);
 	cout << "Total SV: " << total_svs << endl;
 	std::vector<double> initial_counts = svs_count_mat;
 
@@ -359,7 +359,7 @@ void select_topN(std::string vcf_file, int num_samples, std::string output) {
 	system(ss.str().c_str());
 }
 
-void select_random(std::string vcf_file, int num_samples, std::string output) {
+void select_random(std::string vcf_file, int num_samples, bool use_alleles,  std::string output) {
 	std::vector<std::string> sample_names;
 	double total_svs = 0;
 	srand(time(NULL));
@@ -367,7 +367,7 @@ void select_random(std::string vcf_file, int num_samples, std::string output) {
 //we can actually just use a vector instead!
 	std::string tmp_file = output;
 	tmp_file += "_tmp";
-	std::vector<double> svs_count_mat = prep_file(vcf_file, 0, sample_names, total_svs, tmp_file, false);
+	std::vector<double> svs_count_mat = prep_file(vcf_file, 0, sample_names, total_svs, tmp_file, use_alleles);
 //print_mat(svs_count_mat);
 
 	std::vector<int> ids; // just to avoid that the same ID is picked twice.

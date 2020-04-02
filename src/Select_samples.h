@@ -21,8 +21,8 @@ using namespace std;
 
 
 void select_greedy(std::string vcf_file, int min_allele_count, int num_samples, int alleles,  std::string output, std::string preselected_file);
-void select_topN(std::string vcf_file, int num_samples,  std::string output);
-void select_random(std::string vcf_file, int num_samples,  std::string output);
+void select_topN(std::string vcf_file, int num_samples, bool use_alleles, std::string output);
+void select_random(std::string vcf_file, int num_samples, bool use_alleles, std::string output);
 void select_greedyv2(std::string vcf_file, int num_samples, std::string output);
 void generate_matrix(std::string vcf_file, std::string output,std::string chosen);
 

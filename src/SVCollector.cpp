@@ -48,21 +48,23 @@ int main(int argc, char **argv) {
 			exit(0);
 		}
 		if (strcmp(argv[1], "topN") == 0) {
-			if (argc == 5) {
-				select_topN(std::string(argv[2]), atoi(argv[3]), std::string(argv[4]));
+			if (argc == 6) {
+				select_topN(std::string(argv[2]), atoi(argv[3]),(bool) (atoi(argv[4]) == 1),std::string(argv[5]));
 			} else {
 				std::cerr << "Input VCF file" << std::endl;
 				std::cerr << "Number of samples to select" << std::endl;
+				std::cerr << "Take AF into account (1) or not (0) per allele" << std::endl;
 				std::cerr << "Output file" << std::endl;
 			}
 			exit(0);
 		}
 		if (strcmp(argv[1], "random") == 0) {
-			if (argc == 5) {
-				select_random(std::string(argv[2]), atoi(argv[3]), std::string(argv[4]));
+			if (argc == 6) {
+				select_random(std::string(argv[2]), atoi(argv[3]),(bool) (atoi(argv[4]) == 1), std::string(argv[5]));
 			} else {
 				std::cerr << "Input VCF file" << std::endl;
 				std::cerr << "Number of samples to select" << std::endl;
+				std::cerr << "Take AF into account (1) or not (0) per allele" << std::endl;
 				std::cerr << "Output file" << std::endl;
 			}
 			exit(0);
