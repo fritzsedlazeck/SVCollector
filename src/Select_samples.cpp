@@ -10,6 +10,7 @@
 bool genotype_parse(char * buffer) {
 //buffer[0] == '.'
 	if (((buffer[0] == '0' && buffer[2] == '0')) || (strncmp(buffer, "./.:0", 5) == 0 || strncmp(buffer, "./.:.", 5) == 0) || buffer[0] == '.') {
+		//if(strncmp(buffer,"./.:NaN:0:0,0:--:NaN",20)==0){
 		return false;
 	}
 
@@ -84,7 +85,10 @@ std::vector<double> prep_file(std::string vcf_file, int min_allele_count, std::v
 		exit(0);
 	}
 
+	bool min_all = true;
+
 	if (min_allele_count < 0) {
+		min_all = false;
 		min_allele_count = 0;
 	}
 	FILE *file;
@@ -126,7 +130,7 @@ std::vector<double> prep_file(std::string vcf_file, int min_allele_count, std::v
 			int count = 0;
 			int num = 0;
 			double alleles = 0;
-			double af = -1; //just used for adams selection.
+			double af = -1;
 			std::string entries = "";
 			entries.resize(names.size(), '0');
 			for (size_t i = 0; i < buffer.size() && buffer[i] != '\0' && buffer[i] != '\n' && num < names.size(); i++) {
@@ -145,7 +149,7 @@ std::vector<double> prep_file(std::string vcf_file, int min_allele_count, std::v
 					count++;
 				}
 			}
-			if (alleles > (double) min_allele_count) {
+			if (!min_all || alleles > (double) min_allele_count) {
 				//std::stringstream ss;
 				double freq = 1;
 				if (use_alleles && af > -1) { // if AF is given in the format field.
@@ -154,7 +158,7 @@ std::vector<double> prep_file(std::string vcf_file, int min_allele_count, std::v
 					freq = (alleles / (double(names.size())));
 				}
 
-				fprintf(file, "%f", freq);
+				fprintf(file, "%.17g", freq); //was %f
 				//ss << freq;
 				num_snp += freq;
 				fprintf(file, "%c", ':');
@@ -196,6 +200,41 @@ void print_mat(std::vector<int> svs_count_mat) {
 	std::cout << std::endl;
 }
 
+std::map<std::string, double> parse_weights(std::string preselected_file) {
+	std::string buffer;
+	std::ifstream myfile;
+	myfile.open(preselected_file.c_str(), std::ifstream::in);
+	if (!myfile.good()) {
+		std::cout << "VCF Parser: could not open file: " << preselected_file.c_str() << std::endl;
+		exit(0);
+	}
+	std::map<std::string, double> weighted_names;
+	getline(myfile, buffer);
+	while (!myfile.eof()) {
+
+		std::string name = "";
+		int count = 0;
+		double weight = 0;
+		for (size_t i = 0; i < buffer.size() && buffer[i] != '\0' && buffer[i] != '\n'; i++) {
+			if (count == 0 && buffer[i] != '\t') {
+				name += buffer[i];
+			}
+			if (count == 1 && buffer[i - 1] == '\t') {
+				weight = atof(&buffer[i]);
+				break;
+			}
+			if (buffer[i] == '\t') {
+				count++;
+			}
+		}
+		weighted_names[name] = weight;
+		getline(myfile, buffer);
+	}
+	myfile.close();
+	return weighted_names;
+
+}
+
 std::map<std::string, bool> parse_names(std::string preselected_file) {
 	std::string buffer;
 	std::ifstream myfile;
@@ -220,15 +259,22 @@ std::map<std::string, bool> parse_names(std::string preselected_file) {
 
 }
 
-void select_greedy(std::string vcf_file, int min_allele_count, int num_samples, int alleles, std::string output, std::string preselected_file) {
+void select_greedy(std::string vcf_file, int min_allele_count, int num_samples, int alleles, std::string output, std::string preselected_file, std::string weighted_file) {
 	std::vector<std::string> sample_names;
 	double total_svs = 0;
 
+	std::map<std::string, double> weighted_names;
+	if (!weighted_file.empty() && strncmp(weighted_file.c_str(), "NA", 2) != 0) {
+		cout << "Parsing preselected names:";
+		weighted_names = parse_weights(weighted_file);
+		cout << "Samples with weights: " << weighted_names.size() << endl;
+	}
+
 	std::map<std::string, bool> preselected_names;
-	if (!preselected_file.empty()) {
+	if (!preselected_file.empty() && strncmp(preselected_file.c_str(), "NA", 2) != 0) {
 		cout << "Parsing preselected names:";
 		preselected_names = parse_names(preselected_file);
-		cout<<preselected_names.size()<<endl;
+		cout << "Samples previously selected: " << preselected_names.size() << endl;
 	}
 
 	//we can actually just use a vector instead!
@@ -255,25 +301,33 @@ void select_greedy(std::string vcf_file, int min_allele_count, int num_samples, 
 			//select based on greedy:
 			for (size_t j = 0; j < sample_names.size(); j++) {
 				//cout<<"Mat "<<svs_count_mat[i]<<endl;
-				if (max < svs_count_mat[j]) {
-					max = svs_count_mat[j];
-					max_id = j;
-					//	cout<<"test: "<<max << " "<<max_id<<endl;
+
+				if (!weighted_names.empty() && weighted_names.find(sample_names[j]) != weighted_names.end()) {
+					if (max < svs_count_mat[j]*weighted_names[sample_names[j]]) {
+						max = svs_count_mat[j];
+						max_id = j;
+					}
+				} else {
+					if (max < svs_count_mat[j]) {
+						max = svs_count_mat[j];
+						max_id = j;
+						//	cout<<"test: "<<max << " "<<max_id<<endl;
+					}
 				}
 			}
 		} else { //take from pre selection
-			std::map<std::string, bool>::iterator p=preselected_names.begin();
-			size_t j=0;
-			while(j<i){// very strange..
+			std::map<std::string, bool>::iterator p = preselected_names.begin();
+			size_t j = 0;
+			while (j < i) { // very strange..
 				p++;
 				j++;
 			}
 
-			std::string name=(*p).first;
-			for(size_t j=0;j<sample_names.size();j++){
-				if(strcmp(sample_names[j].c_str(),name.c_str())==0){
+			std::string name = (*p).first;
+			for (size_t j = 0; j < sample_names.size(); j++) {
+				if (strcmp(sample_names[j].c_str(), name.c_str()) == 0) {
 					max_id = j;
-					cout<<"Preselected hit"<<endl;
+					cout << "Preselected hit" << endl;
 					max = svs_count_mat[j];
 					break;
 				}
@@ -297,7 +351,7 @@ void select_greedy(std::string vcf_file, int min_allele_count, int num_samples, 
 		//erase joined svs
 		parse_tmp_file(tmp_file, max_id, svs_count_mat, (bool) (alleles == 1));						//span a  NxN matrix and stores the shared SVs
 	}
-	cout<<"Finishing... "<<endl;
+	cout << "Finishing... " << endl;
 	fclose(file);
 	std::stringstream ss;
 	ss << "rm ";
@@ -359,7 +413,7 @@ void select_topN(std::string vcf_file, int num_samples, bool use_alleles, std::s
 	system(ss.str().c_str());
 }
 
-void select_random(std::string vcf_file, int num_samples, bool use_alleles,  std::string output) {
+void select_random(std::string vcf_file, int num_samples, bool use_alleles, std::string output) {
 	std::vector<std::string> sample_names;
 	double total_svs = 0;
 	srand(time(NULL));

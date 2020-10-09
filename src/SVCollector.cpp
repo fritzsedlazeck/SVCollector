@@ -34,15 +34,16 @@ int main(int argc, char **argv) {
 	} else {
 		if (strcmp(argv[1], "greedy") == 0) {
 			if (argc == 7) {
-				select_greedy(std::string(argv[2]), atoi(argv[3]), atoi(argv[4]), atoi(argv[5]), std::string(argv[6]),"");
-			} else if (argc == 8) {
-				select_greedy(std::string(argv[2]), atoi(argv[3]), atoi(argv[4]), atoi(argv[5]), std::string(argv[7]),std::string(argv[6]));
+				select_greedy(std::string(argv[2]), atoi(argv[3]), atoi(argv[4]), atoi(argv[5]), std::string(argv[6]),"NA","NA");
+			} else if (argc == 9) {
+				select_greedy(std::string(argv[2]), atoi(argv[3]), atoi(argv[4]), atoi(argv[5]), std::string(argv[8]),std::string(argv[6]),std::string(argv[7]));
 			} else {
 				std::cerr << "Input VCF file" << std::endl;
 				std::cerr << "Min allele count (-1 to disable)" << std::endl;
 				std::cerr << "Number of samples to select" << std::endl;
 				std::cerr << "Take AF into account (1) or not (0) per allele" << std::endl;
-				std::cerr << "Optionally: File of names to select anyways" << std::endl;
+				std::cerr << "Optionally: File of names to select anyways (NA to disable)" << std::endl;
+				std::cerr << "Optionally: Text File of names and weights (NA to disable)" << std::endl;
 				std::cerr << "Output file" << std::endl;
 			}
 			exit(0);
