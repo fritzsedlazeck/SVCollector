@@ -28,7 +28,16 @@ echo " computing topN selection (disable min allele freq)"
 $SVC topN $VCF $NUMTOPLOT 0 $OUTDIR/$VCFB.topN >& $OUTDIR/$VCFB.topN.log
 
 echo " computing random selection over $RANDOMTRIALS trials (disable min allele freq) "
-(seq $RANDOMTRIALS | parallel -t $SVC random $VCF $NUMTOPLOT 0 $OUTDIR/$VCFB.random.{}) >& $OUTDIR/$VCFB.randomlog
+
+## Uncomment if you have GNU Parallel Installed and comment out the for loop
+#(seq $RANDOMTRIALS | parallel -t $SVC random $VCF $NUMTOPLOT 0 $OUTDIR/$VCFB.random.{}) >& $OUTDIR/$VCFB.randomlog
+
+for i in `seq $RANDOMTRIALS`
+do
+  echo "  iteration $i for a random selection"
+  ($SVC random $VCF $NUMTOPLOT 0 $OUTDIR/$VCFB.random.$i) >> $OUTDIR/$VCFB.randomlog 2>&1
+done
+
 
 echo " cleaning _tmp files"
 rm -f $OUTDIR/*_tmp
