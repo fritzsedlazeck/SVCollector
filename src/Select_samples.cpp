@@ -9,6 +9,14 @@
 
 bool genotype_parse(char * buffer) {
 //buffer[0] == '.'
+
+	if (buffer[1] == ':') { //single digit gt:
+		if (buffer[0] == '1') {
+			return true;
+		} else {
+			return false;
+		}
+	}
 	if (((buffer[0] == '0' && buffer[2] == '0')) || (strncmp(buffer, "./.:0", 5) == 0 || strncmp(buffer, "./.:.", 5) == 0) || buffer[0] == '.') {
 		//if(strncmp(buffer,"./.:NaN:0:0,0:--:NaN",20)==0){
 		return false;
@@ -303,7 +311,7 @@ void select_greedy(std::string vcf_file, int min_allele_count, int num_samples, 
 				//cout<<"Mat "<<svs_count_mat[i]<<endl;
 
 				if (!weighted_names.empty() && weighted_names.find(sample_names[j]) != weighted_names.end()) {
-					if (max < svs_count_mat[j]*weighted_names[sample_names[j]]) {
+					if (max < svs_count_mat[j] * weighted_names[sample_names[j]]) {
 						max = svs_count_mat[j];
 						max_id = j;
 					}
